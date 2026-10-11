@@ -1,4 +1,18 @@
+const fs = require("node:fs");
+const path = require("node:path");
+
 const endpoint = "https://api.deepseek.com/chat/completions";
+const defaultPersona = "你是一个简洁、友好的 QQ 群聊和私聊 AI 助手。请保持自然、尊重和有帮助。";
+
+function loadPersona() {
+  const file = path.join(__dirname, "..", "PERSONA.txt");
+  try {
+    const persona = fs.readFileSync(file, "utf8").trim();
+    return persona || defaultPersona;
+  } catch {
+    return defaultPersona;
+  }
+}
 
 function createDeepSeekClient({ apiKey, model }) {
   if (!apiKey) {
@@ -16,7 +30,7 @@ function createDeepSeekClient({ apiKey, model }) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: "你是一个简洁、友好的 QQ 群聊和私聊助手。" },
+          { role: "system", content: loadPersona() },
           { role: "user", content: message },
         ],
         stream: false,
