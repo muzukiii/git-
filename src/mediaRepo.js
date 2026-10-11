@@ -61,6 +61,16 @@ function createMediaRepo({ repoUrl, token }) {
   }
 
   return {
+    async addSegments(segments) {
+      await loadIndex();
+      for (const segment of segments || []) {
+        if (segment?.type !== "face") continue;
+        const id = String(segment.data?.id || "");
+        if (!id || images.some((item) => item.type === "face" && item.id === id)) continue;
+        images.push({ type: "face", id, data: segment.data });
+      }
+      await saveIndex();
+    },
     async addImages(urls) {
       await loadIndex();
       for (const url of urls || []) {
@@ -83,7 +93,13 @@ function createMediaRepo({ repoUrl, token }) {
       await saveIndex();
     },
     randomImage() {
-      return images.length ? images[Math.floor(Math.random() * images.length)].url : null;
+      const item = images.filter((entry) => entry.type !== "face" && entry.url)[Math.floor(Math.random() * images.filter((entry) => entry.type !== "face" && entry.url).length)];
+      return item?.url || null;
+    },
+    randomSticker() {
+      if (!images.length) return null;
+      const item = images[Math.floor(Math.random() * images.length)];
+      return item.type === "face" ? { type: "face", data: item.data } : { type: "image", data: { file: item.url } };
     },
   };
 }

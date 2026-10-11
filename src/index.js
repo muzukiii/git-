@@ -40,6 +40,7 @@ function connect() {
             .map((segment) => segment.data?.url)
             .filter(Boolean)
         : [];
+      if (mediaRepo && Array.isArray(event.message)) await mediaRepo.addSegments(event.message);
       if (mediaRepo && images.length) await mediaRepo.addImages(images);
 
       if (event.message_type === "group") {
