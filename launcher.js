@@ -1,6 +1,25 @@
 require("dotenv").config();
 
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const lockPath = path.join(__dirname, ".bot.pid");
+try {
+  const fd = fs.openSync(lockPath, "wx");
+  fs.writeFileSync(fd, String(process.pid));
+  fs.closeSync(fd);
+} catch {
+  console.error("机器人已有实例运行，本次启动已取消。");
+  process.exit(1);
+}
+
+function releaseLock() {
+  try { fs.unlinkSync(lockPath); } catch {}
+}
+process.on("exit", releaseLock);
+process.on("SIGINT", () => { releaseLock(); process.exit(0); });
+process.on("SIGTERM", () => { releaseLock(); process.exit(0); });
 
 const proxy = process.env.DEEPSEEK_PROXY;
 if (proxy) {
