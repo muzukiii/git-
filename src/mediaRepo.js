@@ -25,11 +25,17 @@ function createMediaRepo({ repoUrl, token }) {
   async function loadIndex() {
     try {
       const response = await fetch(`${api}/index.json`, { headers });
-      if (!response.ok) return;
+      if (response.status === 404) {
+        images = [];
+        return true;
+      }
+      if (!response.ok) return false;
       const data = await response.json();
       images = JSON.parse(Buffer.from(data.content, "base64").toString("utf8"));
+      return true;
     } catch (error) {
       console.error("读取媒体仓库索引失败:", error.message);
+      return false;
     }
   }
 
@@ -51,6 +57,7 @@ function createMediaRepo({ repoUrl, token }) {
     try {
       const response = await fetch(`${api}/index.json`, { headers });
       if (response.ok) sha = (await response.json()).sha;
+      else if (response.status !== 404) throw new Error(`读取索引版本失败: GitHub HTTP ${response.status}`);
     } catch {}
     try {
       await put("index.json", Buffer.from(JSON.stringify(images, null, 2)).toString("base64"), "Update media index", sha);
@@ -64,7 +71,7 @@ function createMediaRepo({ repoUrl, token }) {
   return {
     async addSegments(segments) {
       const job = writeQueue.then(async () => {
-        await loadIndex();
+        if (!(await loadIndex())) throw new Error("媒体仓库索引不可用，本次不保存表情");
         for (const segment of segments || []) {
           if (segment?.type !== "face") continue;
           const id = String(segment.data?.id || "");
@@ -78,7 +85,7 @@ function createMediaRepo({ repoUrl, token }) {
     },
     async addImages(urls) {
       const job = writeQueue.then(async () => {
-        await loadIndex();
+        if (!(await loadIndex())) throw new Error("媒体仓库索引不可用，本次不保存图片");
         for (const url of urls || []) {
           try {
             const response = await fetch(url);
