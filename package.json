@@ -5,7 +5,7 @@
   "description": "Node.js OneBot v11 group and private chat bot skeleton",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node launcher.js"
   },
   "engines": {
     "node": ">=18"

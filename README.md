@@ -9,7 +9,7 @@
 ```powershell
 npm install
 Copy-Item .env.example .env
-# 编辑 .env，填写 OneBot WebSocket 地址和访问令牌（如有）
+# 编辑 .env，填写 OneBot、DeepSeek 配置；若使用本机代理可设置 DEEPSEEK_PROXY
 npm start
 ```
 
