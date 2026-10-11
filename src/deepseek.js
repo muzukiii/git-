@@ -20,7 +20,7 @@ function createDeepSeekClient({ apiKey, model, visionModel }) {
     return null;
   }
 
-  return async function askDeepSeek(message, images = [], history = []) {
+  return async function askDeepSeek(message, images = [], history = [], profile = {}) {
     const userContent = images.length
       ? [
           { type: "text", text: message || "请描述这张图片，并结合聊天上下文回答。" },
@@ -36,7 +36,7 @@ function createDeepSeekClient({ apiKey, model, visionModel }) {
       body: JSON.stringify({
         model: images.length ? visionModel || model : model,
         messages: [
-          { role: "system", content: `${loadPersona()}\n结合最近对话理解语境，只输出最终回复。` },
+          { role: "system", content: `${loadPersona()}\n结合最近对话理解语境，只输出最终回复。当前对象信息：昵称“${profile.name || "朋友"}”，建议称呼“${profile.address || "朋友哥哥"}”，QQ号“${profile.qq || "未知"}”，所在群“${profile.groupName || "私聊"}”。头像地址：${profile.avatarUrl || "未知"}。请自然使用称呼，不要机械重复。` },
           ...history,
           { role: "user", content: userContent },
         ],

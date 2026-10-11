@@ -1,4 +1,5 @@
 const context = require("../context");
+const { getProfile } = require("../profile");
 
 async function handleGroupMessage(event, sendAction, askDeepSeek, images = [], mediaRepo) {
   const message = String(event.raw_message || "").replace(/\[CQ:at,qq=\d+(?:,[^\]]+)?\]\s*/g, "").trim();
@@ -10,6 +11,7 @@ async function handleGroupMessage(event, sendAction, askDeepSeek, images = [], m
     : new RegExp(`\\[CQ:at,qq=${botId}(?:,|\\])`).test(message);
   if (!mentionedBot) return;
   context.add(event, "user", message);
+  const profile = getProfile(event);
 
   if (message === "/help") {
     sendAction("send_group_msg", {
@@ -21,7 +23,7 @@ async function handleGroupMessage(event, sendAction, askDeepSeek, images = [], m
 
   if (!message || !askDeepSeek) return;
   try {
-    const reply = await askDeepSeek(message, images, context.get(event));
+    const reply = await askDeepSeek(message, images, context.get(event), profile);
     context.add(event, "assistant", reply);
     const recent = context.get(event).map((item) => item.content).join(" ");
     const clearMood = /哈哈|笑死|太逗|开心|谢谢|感谢|惊讶|哇|无语|加油/.test(`${recent} ${reply}`);
