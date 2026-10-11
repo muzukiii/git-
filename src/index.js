@@ -3,10 +3,15 @@ require("dotenv").config();
 const WebSocket = require("ws");
 const { handleGroupMessage } = require("./handlers/group");
 const { handlePrivateMessage } = require("./handlers/private");
+const { createDeepSeekClient } = require("./deepseek");
 
 const wsUrl = process.env.ONEBOT_WS_URL;
 const token = process.env.ONEBOT_ACCESS_TOKEN;
 const reconnectDelay = Number(process.env.RECONNECT_DELAY_MS || 5000);
+const askDeepSeek = createDeepSeekClient({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+});
 
 if (!wsUrl) {
   console.error("缺少 ONEBOT_WS_URL，请复制 .env.example 为 .env 后配置。");
@@ -28,9 +33,9 @@ function connect() {
       if (event.post_type !== "message") return;
 
       if (event.message_type === "group") {
-        handleGroupMessage(event, sendAction);
+        handleGroupMessage(event, sendAction, askDeepSeek);
       } else if (event.message_type === "private") {
-        handlePrivateMessage(event, sendAction);
+        handlePrivateMessage(event, sendAction, askDeepSeek);
       }
     } catch (error) {
       console.error("处理事件失败:", error.message);
