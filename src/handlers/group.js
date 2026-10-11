@@ -1,6 +1,4 @@
-const { chooseSticker } = require("../stickers");
-
-async function handleGroupMessage(event, sendAction, askDeepSeek, images = []) {
+async function handleGroupMessage(event, sendAction, askDeepSeek, images = [], mediaRepo) {
   const message = String(event.raw_message || "").replace(/\[CQ:at,qq=\d+(?:,[^\]]+)?\]\s*/g, "").trim();
   console.log(`[群 ${event.group_id}] ${event.sender?.nickname || event.user_id}: ${message}`);
 
@@ -21,10 +19,10 @@ async function handleGroupMessage(event, sendAction, askDeepSeek, images = []) {
   if (!message || !askDeepSeek) return;
   try {
     const reply = await askDeepSeek(message, images);
-    const sticker = chooseSticker(reply);
+    const sticker = /哈哈|笑死|开心|谢谢|感谢|惊讶|哇/.test(reply) && mediaRepo?.randomImage();
     sendAction("send_group_msg", {
       group_id: event.group_id,
-      message: sticker ? [{ type: "text", data: { text: reply } }, sticker] : reply,
+      message: sticker ? [{ type: "text", data: { text: reply } }, { type: "image", data: { file: sticker } }] : reply,
     });
   } catch (error) {
     console.error("群聊 AI 回复失败:", error.message);

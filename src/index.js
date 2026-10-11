@@ -4,7 +4,7 @@ const WebSocket = require("ws");
 const { handleGroupMessage } = require("./handlers/group");
 const { handlePrivateMessage } = require("./handlers/private");
 const { createDeepSeekClient } = require("./deepseek");
-const { collectStickers } = require("./stickers");
+const { createMediaRepo } = require("./mediaRepo");
 
 const wsUrl = process.env.ONEBOT_WS_URL;
 const token = process.env.ONEBOT_ACCESS_TOKEN;
@@ -14,6 +14,7 @@ const askDeepSeek = createDeepSeekClient({
   model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
   visionModel: process.env.DEEPSEEK_VISION_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-chat",
 });
+const mediaRepo = createMediaRepo({ repoUrl: process.env.MEDIA_REPO_URL, token: process.env.MEDIA_REPO_TOKEN });
 
 if (!wsUrl) {
   console.error("缺少 ONEBOT_WS_URL，请复制 .env.example 为 .env 后配置。");
@@ -29,23 +30,22 @@ function connect() {
   socket = new WebSocket(wsUrl, { headers });
 
   socket.on("open", () => console.log("OneBot WebSocket 已连接"));
-  socket.on("message", (data) => {
+  socket.on("message", async (data) => {
     try {
       const event = JSON.parse(data.toString());
       if (event.post_type !== "message") return;
-      collectStickers(event.message);
-
       const images = Array.isArray(event.message)
         ? event.message
             .filter((segment) => segment.type === "image")
             .map((segment) => segment.data?.url)
             .filter(Boolean)
         : [];
+      if (mediaRepo && images.length) await mediaRepo.addImages(images);
 
       if (event.message_type === "group") {
-        handleGroupMessage(event, sendAction, askDeepSeek, images);
+        handleGroupMessage(event, sendAction, askDeepSeek, images, mediaRepo);
       } else if (event.message_type === "private") {
-        handlePrivateMessage(event, sendAction, askDeepSeek, images);
+        handlePrivateMessage(event, sendAction, askDeepSeek, images, mediaRepo);
       }
     } catch (error) {
       console.error("处理事件失败:", error.message);
