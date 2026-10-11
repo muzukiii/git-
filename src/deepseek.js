@@ -14,13 +14,19 @@ function loadPersona() {
   }
 }
 
-function createDeepSeekClient({ apiKey, model }) {
+function createDeepSeekClient({ apiKey, model, visionModel }) {
   if (!apiKey) {
     console.warn("未配置 DEEPSEEK_API_KEY，AI 回复功能未启用。");
     return null;
   }
 
-  return async function askDeepSeek(message) {
+  return async function askDeepSeek(message, images = []) {
+    const userContent = images.length
+      ? [
+          { type: "text", text: message || "请描述这张图片，并结合聊天上下文回答。" },
+          ...images.map((url) => ({ type: "image_url", image_url: { url } })),
+        ]
+      : message;
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -28,10 +34,10 @@ function createDeepSeekClient({ apiKey, model }) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model,
+        model: images.length ? visionModel || model : model,
         messages: [
           { role: "system", content: loadPersona() },
-          { role: "user", content: message },
+          { role: "user", content: userContent },
         ],
         stream: false,
       }),

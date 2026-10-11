@@ -4,6 +4,7 @@ const WebSocket = require("ws");
 const { handleGroupMessage } = require("./handlers/group");
 const { handlePrivateMessage } = require("./handlers/private");
 const { createDeepSeekClient } = require("./deepseek");
+const { collectStickers } = require("./stickers");
 
 const wsUrl = process.env.ONEBOT_WS_URL;
 const token = process.env.ONEBOT_ACCESS_TOKEN;
@@ -11,6 +12,7 @@ const reconnectDelay = Number(process.env.RECONNECT_DELAY_MS || 5000);
 const askDeepSeek = createDeepSeekClient({
   apiKey: process.env.DEEPSEEK_API_KEY,
   model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+  visionModel: process.env.DEEPSEEK_VISION_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-chat",
 });
 
 if (!wsUrl) {
@@ -31,11 +33,19 @@ function connect() {
     try {
       const event = JSON.parse(data.toString());
       if (event.post_type !== "message") return;
+      collectStickers(event.message);
+
+      const images = Array.isArray(event.message)
+        ? event.message
+            .filter((segment) => segment.type === "image")
+            .map((segment) => segment.data?.url)
+            .filter(Boolean)
+        : [];
 
       if (event.message_type === "group") {
-        handleGroupMessage(event, sendAction, askDeepSeek);
+        handleGroupMessage(event, sendAction, askDeepSeek, images);
       } else if (event.message_type === "private") {
-        handlePrivateMessage(event, sendAction, askDeepSeek);
+        handlePrivateMessage(event, sendAction, askDeepSeek, images);
       }
     } catch (error) {
       console.error("处理事件失败:", error.message);
