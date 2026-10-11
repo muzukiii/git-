@@ -38,17 +38,26 @@ function createMediaRepo({ repoUrl, token }) {
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
     });
-    if (!response.ok) throw new Error(`GitHub HTTP ${response.status}`);
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`GitHub HTTP ${response.status}: ${detail.slice(0, 240)}`);
+    }
     return response.json();
   }
 
-  async function saveIndex() {
+  async function saveIndex(retry = true) {
     let sha;
     try {
       const response = await fetch(`${api}/index.json`, { headers });
       if (response.ok) sha = (await response.json()).sha;
     } catch {}
-    await put("index.json", Buffer.from(JSON.stringify(images, null, 2)).toString("base64"), "Update media index", sha);
+    try {
+      await put("index.json", Buffer.from(JSON.stringify(images, null, 2)).toString("base64"), "Update media index", sha);
+    } catch (error) {
+      if (!retry || !String(error.message).includes("GitHub HTTP 422")) throw error;
+      await loadIndex();
+      await saveIndex(false);
+    }
   }
 
   return {
