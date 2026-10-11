@@ -20,6 +20,7 @@ function createMediaRepo({ repoUrl, token }) {
     "User-Agent": "onebot-node-bot",
   };
   let images = [];
+  let writeQueue = Promise.resolve();
 
   async function loadIndex() {
     try {
@@ -54,7 +55,7 @@ function createMediaRepo({ repoUrl, token }) {
     try {
       await put("index.json", Buffer.from(JSON.stringify(images, null, 2)).toString("base64"), "Update media index", sha);
     } catch (error) {
-      if (!retry || !String(error.message).includes("GitHub HTTP 422")) throw error;
+      if (!retry || !/GitHub HTTP (409|422)/.test(String(error.message))) throw error;
       await loadIndex();
       await saveIndex(false);
     }
@@ -62,35 +63,43 @@ function createMediaRepo({ repoUrl, token }) {
 
   return {
     async addSegments(segments) {
-      await loadIndex();
-      for (const segment of segments || []) {
-        if (segment?.type !== "face") continue;
-        const id = String(segment.data?.id || "");
-        if (!id || images.some((item) => item.type === "face" && item.id === id)) continue;
-        images.push({ type: "face", id, data: segment.data });
-      }
-      await saveIndex();
+      const job = writeQueue.then(async () => {
+        await loadIndex();
+        for (const segment of segments || []) {
+          if (segment?.type !== "face") continue;
+          const id = String(segment.data?.id || "");
+          if (!id || images.some((item) => item.type === "face" && item.id === id)) continue;
+          images.push({ type: "face", id, data: segment.data });
+        }
+        await saveIndex();
+      });
+      writeQueue = job.catch(() => {});
+      return job;
     },
     async addImages(urls) {
-      await loadIndex();
-      for (const url of urls || []) {
-        try {
-          const response = await fetch(url);
-          if (!response.ok) continue;
-          const buffer = Buffer.from(await response.arrayBuffer());
-          const hash = crypto.createHash("sha256").update(buffer).digest("hex");
-          const type = response.headers.get("content-type") || "image/jpeg";
-          const ext = type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
-          const name = `images/${hash}.${ext}`;
-          if (!images.some((item) => item.path === name)) {
-            await put(name, buffer.toString("base64"), "Add QQ image");
-            images.push({ path: name, url: `https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/main/${name}` });
+      const job = writeQueue.then(async () => {
+        await loadIndex();
+        for (const url of urls || []) {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) continue;
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const hash = crypto.createHash("sha256").update(buffer).digest("hex");
+            const type = response.headers.get("content-type") || "image/jpeg";
+            const ext = type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+            const name = `images/${hash}.${ext}`;
+            if (!images.some((item) => item.path === name)) {
+              await put(name, buffer.toString("base64"), "Add QQ image");
+              images.push({ path: name, url: `https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/main/${name}` });
+            }
+          } catch (error) {
+            console.error("上传图片失败:", error.message);
           }
-        } catch (error) {
-          console.error("上传图片失败:", error.message);
         }
-      }
-      await saveIndex();
+        await saveIndex();
+      });
+      writeQueue = job.catch(() => {});
+      return job;
     },
     randomImage() {
       const item = images.filter((entry) => entry.type !== "face" && entry.url)[Math.floor(Math.random() * images.filter((entry) => entry.type !== "face" && entry.url).length)];
