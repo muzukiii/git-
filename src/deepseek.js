@@ -20,7 +20,7 @@ function createDeepSeekClient({ apiKey, model, visionModel }) {
     return null;
   }
 
-  return async function askDeepSeek(message, images = []) {
+  return async function askDeepSeek(message, images = [], history = []) {
     const userContent = images.length
       ? [
           { type: "text", text: message || "请描述这张图片，并结合聊天上下文回答。" },
@@ -36,7 +36,8 @@ function createDeepSeekClient({ apiKey, model, visionModel }) {
       body: JSON.stringify({
         model: images.length ? visionModel || model : model,
         messages: [
-          { role: "system", content: loadPersona() },
+          { role: "system", content: `${loadPersona()}\n结合最近对话理解语境，只输出最终回复。` },
+          ...history,
           { role: "user", content: userContent },
         ],
         stream: false,

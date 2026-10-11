@@ -1,11 +1,17 @@
+const context = require("../context");
+
 async function handlePrivateMessage(event, sendAction, askDeepSeek, images = [], mediaRepo) {
   const message = String(event.raw_message || "").trim();
   console.log(`[私聊 ${event.user_id}] ${event.sender?.nickname || "用户"}: ${message}`);
 
   if (!message || !askDeepSeek) return;
+  context.add(event, "user", message);
   try {
-    const reply = await askDeepSeek(message, images);
-    const sticker = /哈哈|笑死|开心|谢谢|感谢|惊讶|哇/.test(reply) && mediaRepo?.randomImage();
+    const reply = await askDeepSeek(message, images, context.get(event));
+    context.add(event, "assistant", reply);
+    const recent = context.get(event).map((item) => item.content).join(" ");
+    const clearMood = /哈哈|笑死|太逗|开心|谢谢|感谢|惊讶|哇|无语|加油/.test(`${recent} ${reply}`);
+    const sticker = clearMood && mediaRepo?.randomImage();
     sendAction("send_private_msg", {
       user_id: event.user_id,
       message: sticker ? [{ type: "text", data: { text: reply } }, { type: "image", data: { file: sticker } }] : reply,
